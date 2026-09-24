@@ -190,11 +190,12 @@ fun LibraryHostScreen(
     var pendingTopAppBarContentOffset by rememberSaveable { mutableFloatStateOf(Float.NaN) }
     // 保存当前选中的标签页类型，避免国际化切换后索引错位；
     // 首次创建时优先使用用户在“标签页设置”中配置的默认标签页
-    var selectedTab by rememberSaveable {
-        mutableStateOf(readLibraryDefaultTab(LocalContext.current) ?: LibraryTab.LOCAL)
-    }
-    val libraryStateHolder = rememberSaveableStateHolder()
     val context = LocalContext.current
+    val initialLibraryTab = remember {
+        readLibraryDefaultTab(context) ?: LibraryTab.LOCAL
+    }
+    var selectedTab by rememberSaveable { mutableStateOf(initialLibraryTab) }
+    val libraryStateHolder = rememberSaveableStateHolder()
     val scope = rememberCoroutineScope()
     var pendingNeteaseCoverWarmupJob by remember { mutableStateOf<Job?>(null) }
     var pendingNeteaseCoverWarmupToken by remember { mutableIntStateOf(0) }

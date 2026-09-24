@@ -1,7 +1,9 @@
 package moe.ouom.neriplayer.ui.screen.tab
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LibraryScreenTabOrderTest {
@@ -104,9 +106,10 @@ class LibraryScreenTabOrderTest {
 
     @Test
     fun `refreshable tabs follow the visible mapping`() {
-        assertEquals(true, LibraryTab.NETEASEALBUM.asVisibleLibraryTab().isRefreshable())
-        assertEquals(true, LibraryTab.BILI.isRefreshable())
-        assertEquals(false, LibraryTab.LOCAL.isRefreshable())
-        assertEquals(false, null.isRefreshable())
+        assertTrue(LibraryTab.NETEASEALBUM.asVisibleLibraryTab().isRefreshable())
+        assertTrue(LibraryTab.BILI.isRefreshable())
+        assertFalse(LibraryTab.LOCAL.isRefreshable())
+        val noTab: LibraryTab? = null
+        assertFalse(noTab.isRefreshable())
     }
 }

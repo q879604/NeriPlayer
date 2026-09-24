@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.withSave
 import kotlin.math.ceil
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@RequiresApi(Build.VERSION_CODES.S)
 internal class AdvancedGlassLocalBlurRenderer {
     private val sourceNode = RenderNode("AdvancedGlassSource")
     private val downsampledSourceNode = RenderNode("AdvancedGlassDownsampledSource")
@@ -200,7 +200,7 @@ private data class AdvancedGlassLocalBlurTarget(
     val inputBounds: AdvancedGlassLocalBlurBounds
 )
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@RequiresApi(Build.VERSION_CODES.S)
 private class AdvancedGlassLocalBlurNode {
     val renderNode = RenderNode("AdvancedGlassRegion")
     val outputPath = Path()
@@ -290,7 +290,7 @@ private fun Path.updateForRegions(regions: List<AdvancedGlassRenderRegion>) {
 
 private const val NoSourceGeneration = -1L
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@RequiresApi(Build.VERSION_CODES.S)
 private inline fun RenderNode.record(block: (RecordingCanvas) -> Unit) {
     try {
         beginRecording().apply(block)

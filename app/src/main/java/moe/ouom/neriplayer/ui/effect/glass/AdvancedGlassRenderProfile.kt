@@ -52,6 +52,17 @@ internal data class AdvancedGlassRenderProfile(
             maximumMergedInputAreaRatio = 1.08f,
             maximumDownscaleFactor = 2
         )
+
+        /**
+         * API 31-32 无可用的 RuntimeShader 区域遮罩，回退到局部区域高斯模糊。
+         * 使用与 UltraLow 一致的合并容忍度，允许跨区域合并输入以控制离屏节点数量。
+         */
+        val RuntimeShaderFallback = AdvancedGlassRenderProfile(
+            algorithm = AdvancedGlassBlurAlgorithm.Native,
+            pipeline = AdvancedGlassRenderPipeline.RegionLocal,
+            maximumMergedInputAreaRatio = 1.20f,
+            maximumDownscaleFactor = 4
+        )
     }
 }
 
@@ -60,4 +71,17 @@ internal fun AdvancedBlurQuality.renderProfile(): AdvancedGlassRenderProfile = w
     AdvancedBlurQuality.Low -> AdvancedGlassRenderProfile.Low
     AdvancedBlurQuality.Default,
     AdvancedBlurQuality.High -> AdvancedGlassRenderProfile.Native
+}
+
+/**
+ * 依据当前系统版本收敛渲染管线：
+ * - Android 13+ 保持原配置（全屏区域遮罩或局部渲染）
+ * - API 31-32 上全屏遮罩依赖 RuntimeShader，回退到局部高斯模糊管线
+ */
+internal fun AdvancedBlurQuality.renderProfileForSdk(sdkInt: Int): AdvancedGlassRenderProfile {
+    val profile = renderProfile()
+    if (supportsAdvancedGlassRuntimeShader(sdkInt) || profile.usesRegionLocalRendering) {
+        return profile
+    }
+    return AdvancedGlassRenderProfile.RuntimeShaderFallback
 }

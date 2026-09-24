@@ -12,7 +12,7 @@
     <string name="settings_coherent_feedback">Coherent feedback</string>
     <string name="settings_coherent_feedback_desc">Move detail and background pages together; turn this off for a drawer-style rise with a gently receding background</string>
     <string name="settings_advanced_blur">Advanced Blur Effects</string>
-    <string name="settings_advanced_blur_desc">Enable live background blur for the mini player and bottom bar on Android 13+</string>
+    <string name="settings_advanced_blur_desc">Enable live background blur for the mini player and bottom bar on Android 12+; Android 12 uses basic Gaussian blur</string>
     <string name="settings_enhanced_advanced_blur">Enhanced Advanced Blur</string>
     <string name="settings_enhanced_advanced_blur_desc">Enable adjustable live glass blur for top and bottom tabs and settings cards</string>
     <string name="settings_enhanced_advanced_blur_radius">Blur amount</string>

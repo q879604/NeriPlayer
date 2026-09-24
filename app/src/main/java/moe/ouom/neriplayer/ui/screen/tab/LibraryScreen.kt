@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -60,6 +61,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.History
 import moe.ouom.neriplayer.ui.component.overlay.DensityScaledAlertDialog as AlertDialog
@@ -95,6 +99,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -186,6 +191,8 @@ private const val LOCAL_CATEGORY_PLAYLIST = 0
 private const val LOCAL_CATEGORY_ARTIST = 1
 private const val LIBRARY_UI_PREFS = "library_ui_preferences"
 private const val KEY_LOCAL_ARTIST_SORT_MODE = "local_artist_sort_mode"
+private const val KEY_LIBRARY_TAB_ORDER = "library_tab_order"
+private const val KEY_LIBRARY_DEFAULT_TAB = "library_default_tab"
 private val LibraryPrimaryTabShape = RoundedCornerShape(20.dp)
 private val LibrarySearchFieldShape = RoundedCornerShape(16.dp)
 
@@ -224,6 +231,68 @@ private fun persistLocalArtistSortMode(context: Context, sortMode: LocalArtistSo
         .edit {
             putString(KEY_LOCAL_ARTIST_SORT_MODE, localArtistSortModeStorageValue(sortMode))
         }
+}
+
+/**
+ * 解析持久化的标签页顺序：保留已存储且当前可用的标签页顺序，
+ * 其余可用标签页按默认顺序追加到末尾，避免功能开关变化后丢失标签页。
+ */
+internal fun resolveLibraryTabOrder(
+    storageValue: String?,
+    availableTabs: List<LibraryTab>
+): List<LibraryTab> {
+    if (storageValue.isNullOrBlank()) return availableTabs
+    val availableSet = availableTabs.toSet()
+    val stored = storageValue.split(',')
+        .mapNotNull { name -> LibraryTab.entries.firstOrNull { it.name == name.trim() } }
+        .filter { it in availableSet }
+        .distinct()
+    return stored + availableTabs.filterNot { it in stored }
+}
+
+internal fun libraryTabOrderStorageValue(order: List<LibraryTab>): String =
+    order.joinToString(separator = ",") { it.name }
+
+/** 解析默认标签页；未配置或不适用于当前可用标签页时回退到首个标签页。 */
+internal fun resolveLibraryDefaultTab(
+    storageValue: String?,
+    availableTabs: List<LibraryTab>
+): LibraryTab? {
+    if (storageValue.isNullOrBlank()) return null
+    return availableTabs.firstOrNull { it.name == storageValue.trim() }
+}
+
+internal fun replaceLibraryTabOrder(
+    order: List<LibraryTab>,
+    fromIndex: Int,
+    toIndex: Int
+): List<LibraryTab> {
+    if (fromIndex !in order.indices || toIndex !in order.indices || fromIndex == toIndex) {
+        return order
+    }
+    return order.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
+}
+
+private fun readLibraryTabOrder(context: Context): String? =
+    context.getSharedPreferences(LIBRARY_UI_PREFS, Context.MODE_PRIVATE)
+        .getString(KEY_LIBRARY_TAB_ORDER, null)
+
+private fun persistLibraryTabOrder(context: Context, order: List<LibraryTab>) {
+    context.getSharedPreferences(LIBRARY_UI_PREFS, Context.MODE_PRIVATE)
+        .edit { putString(KEY_LIBRARY_TAB_ORDER, libraryTabOrderStorageValue(order)) }
+}
+
+/** 读取用户配置的默认标签页；未配置或不可用时返回 null。 */
+internal fun readLibraryDefaultTab(context: Context): LibraryTab? =
+    resolveLibraryDefaultTab(
+        storageValue = context.getSharedPreferences(LIBRARY_UI_PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LIBRARY_DEFAULT_TAB, null),
+        availableTabs = LibraryTab.entries.toList()
+    )
+
+private fun persistLibraryDefaultTab(context: Context, tab: LibraryTab) {
+    context.getSharedPreferences(LIBRARY_UI_PREFS, Context.MODE_PRIVATE)
+        .edit { putString(KEY_LIBRARY_DEFAULT_TAB, tab.name) }
 }
 
 @Composable
@@ -278,11 +347,11 @@ internal fun libraryTabDisplayOrder(
     return if (youtubeEnabled) orderedTabs else orderedTabs - LibraryTab.YTMUSIC
 }
 
-private fun LibraryTab.asVisibleLibraryTab(): LibraryTab {
+internal fun LibraryTab.asVisibleLibraryTab(): LibraryTab {
     return if (this == LibraryTab.NETEASEALBUM) LibraryTab.NETEASE else this
 }
 
-private fun LibraryTab?.isRefreshable(): Boolean {
+internal fun LibraryTab?.isRefreshable(): Boolean {
     return when (this?.asVisibleLibraryTab()) {
         LibraryTab.BILI,
         LibraryTab.YTMUSIC,
@@ -327,8 +396,15 @@ fun LibraryScreen(
         .collectAsStateWithLifecycle(initialValue = false)
     val youtubeEnabled by AppContainer.settingsRepo.youtubeEnabledFlow
         .collectAsStateWithLifecycle(initialValue = YouTubeFeatureGate.isEnabled())
-    val orderedTabs = remember(isInternational, youtubeEnabled) {
-        libraryTabDisplayOrder(isInternational, youtubeEnabled)
+    // 用户自定义的标签页顺序与默认标签页，复用 LIBRARY_UI_PREFS 持久化
+    var storedTabOrder by remember { mutableStateOf(readLibraryTabOrder(context)) }
+    var storedDefaultTab by remember { mutableStateOf(readLibraryDefaultTab(context)) }
+    var showTabSettingsDialog by remember { mutableStateOf(false) }
+    val orderedTabs = remember(isInternational, youtubeEnabled, storedTabOrder) {
+        resolveLibraryTabOrder(
+            storageValue = storedTabOrder,
+            availableTabs = libraryTabDisplayOrder(isInternational, youtubeEnabled)
+        )
     }
     val initialPage = remember(orderedTabs, initialTab) {
         orderedTabs.indexOf(initialTab.asVisibleLibraryTab()).takeIf { it >= 0 } ?: 0
@@ -426,6 +502,14 @@ fun LibraryScreen(
                 scrolledContainerColor = Color.Transparent
             ),
             actions = {
+                HapticIconButton(
+                    onClick = { showTabSettingsDialog = true }
+                ) {
+                    Icon(
+                        Icons.Filled.Settings,
+                        contentDescription = stringResource(R.string.library_tab_order_settings)
+                    )
+                }
                 HapticIconButton(onClick = onOpenStats) {
                     Icon(
                         Icons.Filled.BarChart,
@@ -556,6 +640,180 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    if (showTabSettingsDialog) {
+        LibraryTabOrderDialog(
+            tabs = orderedTabs,
+            defaultTab = storedDefaultTab,
+            onMove = { fromIndex, toIndex ->
+                val reordered = replaceLibraryTabOrder(orderedTabs, fromIndex, toIndex)
+                storedTabOrder = libraryTabOrderStorageValue(reordered)
+                persistLibraryTabOrder(context, reordered)
+            },
+            onSelectDefault = { tab ->
+                storedDefaultTab = tab
+                persistLibraryDefaultTab(context, tab)
+            },
+            onReset = {
+                storedTabOrder = null
+                storedDefaultTab = null
+                context.getSharedPreferences(LIBRARY_UI_PREFS, Context.MODE_PRIVATE).edit {
+                    remove(KEY_LIBRARY_TAB_ORDER)
+                    remove(KEY_LIBRARY_DEFAULT_TAB)
+                }
+            },
+            onDismissRequest = { showTabSettingsDialog = false }
+        )
+    }
+}
+
+/**
+ * 媒体库标签页排序与默认标签页设置对话框。
+ * 顶部为默认标签页选择，下方列表支持拖动排序并提供上/下移按钮作为无障碍替代操作。
+ */
+@Composable
+private fun LibraryTabOrderDialog(
+    tabs: List<LibraryTab>,
+    defaultTab: LibraryTab?,
+    onMove: (fromIndex: Int, toIndex: Int) -> Unit,
+    onSelectDefault: (LibraryTab) -> Unit,
+    onReset: () -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    val reorderState = rememberReorderableLazyListState(
+        onMove = { from: ItemPosition, to: ItemPosition ->
+            val fromIndex = tabs.indexOfFirst { it.name == from.key }
+            val toIndex = tabs.indexOfFirst { it.name == to.key }
+            if (fromIndex != -1 && toIndex != -1 && fromIndex != toIndex) {
+                onMove(fromIndex, toIndex)
+            }
+        },
+        canDragOver = { _, over -> over.key is String }
+    )
+
+    MiuixSettingsDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(R.string.library_tab_order_title)) },
+        text = {
+            MiuixSettingsDialogContent(verticalSpacing = 8.dp) {
+                Text(
+                    text = stringResource(R.string.library_tab_order_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                LazyColumn(
+                    state = reorderState.listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .reorderable(reorderState),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(items = tabs, key = { tab -> tab.name }) { tab ->
+                        ReorderableItem(state = reorderState, key = tab.name) { isDragging ->
+                            LibraryTabOrderRow(
+                                tab = tab,
+                                isDefault = tab == defaultTab,
+                                isDragging = isDragging,
+                                canMoveUp = tabs.indexOf(tab) > 0,
+                                canMoveDown = tabs.indexOf(tab) < tabs.lastIndex,
+                                onSelectDefault = { onSelectDefault(tab) },
+                                onMoveUp = {
+                                    val index = tabs.indexOf(tab)
+                                    if (index > 0) onMove(index, index - 1)
+                                },
+                                onMoveDown = {
+                                    val index = tabs.indexOf(tab)
+                                    if (index in 0 until tabs.lastIndex) onMove(index, index + 1)
+                                },
+                                dragModifier = Modifier.detectReorder(reorderState)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            MiuixSettingsButton(onClick = onDismissRequest) {
+                Text(stringResource(R.string.action_done))
+            }
+        },
+        dismissButton = {
+            MiuixSettingsTextButton(onClick = onReset) {
+                Text(stringResource(R.string.action_reset))
+            }
+        }
+    )
+}
+
+@Composable
+private fun LibraryTabOrderRow(
+    tab: LibraryTab,
+    isDefault: Boolean,
+    isDragging: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onSelectDefault: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    dragModifier: Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDefault) {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f)
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (isDragging) 0.75f else 1f)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onSelectDefault() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(tab.labelResId),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            if (isDefault) {
+                Text(
+                    text = stringResource(R.string.library_tab_order_default_badge),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            HapticIconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                Icon(
+                    imageVector = Icons.Outlined.ArrowUpward,
+                    contentDescription = stringResource(R.string.action_move_up)
+                )
+            }
+            HapticIconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                Icon(
+                    imageVector = Icons.Outlined.ArrowDownward,
+                    contentDescription = stringResource(R.string.action_move_down)
+                )
+            }
+            Box(modifier = dragModifier.padding(start = 4.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.DragHandle,
+                    contentDescription = stringResource(R.string.common_drag_handle),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

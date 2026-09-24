@@ -144,7 +144,9 @@ internal fun AdvancedGlassHost(
     }
     var sessionHealthy by remember { mutableStateOf(true) }
     val sessionController = if (sessionHealthy) controller else controller.afterBackendFailure()
-    val renderProfile = sessionController.advancedBlurQuality.renderProfile()
+    val renderProfile = sessionController.advancedBlurQuality.renderProfileForSdk(
+        sessionController.sdkInt
+    )
     val navigationHandoffActive = regionRegistry.retainsEffectDuringHandoff
     val localBlurRendererCacheKey = sessionController.advancedBlurQuality.ordinal
     val blurRadiusDp = sessionController.normalizedBlurAmountDp

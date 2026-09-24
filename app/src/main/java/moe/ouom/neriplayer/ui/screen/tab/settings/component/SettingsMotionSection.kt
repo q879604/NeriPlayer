@@ -244,7 +244,7 @@ internal fun SettingsMotionSection(
                 )
                 MotionSwitchItem(
                     setting = AutoSettingsMetadata.requireSetting(AutoSettingsKeys.ADVANCED_BLUR_ENABLED),
-                    disabledSuffix = stringResource(R.string.settings_android13_required),
+                    disabledSuffix = stringResource(R.string.settings_android12_required),
                     checked = advancedBlurAvailable && advancedBlurEnabled,
                     enabled = advancedBlurAvailable,
                     alpha = if (advancedBlurAvailable) 1f else 0.5f,

@@ -9,7 +9,10 @@ import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.asComposeRenderEffect
 
-internal const val ADVANCED_GLASS_BACKEND_MIN_SDK = Build.VERSION_CODES.TIRAMISU
+// 基础高斯模糊依赖 RenderEffect.createBlurEffect / RenderNode.setRenderEffect，Android 12 (API 31) 起可用
+internal const val ADVANCED_GLASS_BACKEND_MIN_SDK = Build.VERSION_CODES.S
+// 区域遮罩需要 RuntimeShader，仅 Android 13 (API 33)+ 可用；低版本回退到局部高斯模糊
+internal const val ADVANCED_GLASS_RUNTIME_SHADER_MIN_SDK = Build.VERSION_CODES.TIRAMISU
 internal const val ADVANCED_GLASS_MAX_REGIONS = 32
 
 internal data class AdvancedGlassRenderRegion(
@@ -20,8 +23,19 @@ internal data class AdvancedGlassRenderRegion(
     val cornerRadiiPx: AdvancedGlassCornerRadii
 )
 
+/**
+ * 基础高斯模糊（[AndroidRenderEffect.createBlurEffect] + 离屏 RenderNode）自 Android 12 起可用。
+ * 这是"高级玻璃"的最低支持版本。
+ */
 internal fun isAdvancedGlassBackendSupported(sdkInt: Int): Boolean =
     sdkInt >= ADVANCED_GLASS_BACKEND_MIN_SDK
+
+/**
+ * 全屏区域遮罩渲染依赖 [android.graphics.RuntimeShader]，仅 Android 13+ 可用。
+ * 不满足时调用方应回退到 [AdvancedGlassRenderPipeline.RegionLocal] 局部高斯模糊。
+ */
+internal fun supportsAdvancedGlassRuntimeShader(sdkInt: Int): Boolean =
+    sdkInt >= ADVANCED_GLASS_RUNTIME_SHADER_MIN_SDK
 
 internal fun createAdvancedGlassRenderEffect(
     shaderSource: AdvancedGlassShaderSource,
@@ -30,8 +44,8 @@ internal fun createAdvancedGlassRenderEffect(
     renderProfile: AdvancedGlassRenderProfile = AdvancedGlassRenderProfile.Native,
     regions: List<AdvancedGlassRenderRegion>
 ): RenderEffect? {
-    if (Build.VERSION.SDK_INT < ADVANCED_GLASS_BACKEND_MIN_SDK ||
-        !isAdvancedGlassBackendSupported(sdkInt) ||
+    if (Build.VERSION.SDK_INT < ADVANCED_GLASS_RUNTIME_SHADER_MIN_SDK ||
+        !supportsAdvancedGlassRuntimeShader(sdkInt) ||
         !radiusPx.isFinite() ||
         radiusPx <= 0f ||
         regions.isEmpty()
@@ -59,8 +73,9 @@ internal fun createAdvancedGlassRenderEffectSession(
     shaderSource: AdvancedGlassShaderSource,
     sdkInt: Int
 ): AdvancedGlassRenderEffectSession {
-    if (Build.VERSION.SDK_INT < ADVANCED_GLASS_BACKEND_MIN_SDK ||
-        !isAdvancedGlassBackendSupported(sdkInt)
+    // RuntimeShader 区域遮罩仅在 Android 13+ 可用；API 31-32 由调用方改用局部高斯模糊渲染
+    if (Build.VERSION.SDK_INT < ADVANCED_GLASS_RUNTIME_SHADER_MIN_SDK ||
+        !supportsAdvancedGlassRuntimeShader(sdkInt)
     ) {
         return UnsupportedAdvancedGlassRenderEffectSession
     }

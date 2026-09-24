@@ -98,4 +98,6 @@
     <string name="cd_close">关闭</string>
     <string name="cd_recent">最近播放</string>
     <string name="cd_app_background">应用背景</string>
+    <string name="action_move_up">上移</string>
+    <string name="action_move_down">下移</string>
 </resources>

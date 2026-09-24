@@ -110,4 +110,8 @@
     <string name="favorite_removed">已取消收藏</string>
     <string name="favorite_my_music">我喜欢的音乐</string>
     <string name="recent_clear_confirm">确定要清空全部最近播放记录吗？此操作不可恢复。</string>
+    <string name="library_tab_order_title">标签页排序</string>
+    <string name="library_tab_order_desc">拖动右侧手柄调整标签页顺序，点击可设为默认打开</string>
+    <string name="library_tab_order_default_badge">默认</string>
+    <string name="library_tab_order_settings">标签页设置</string>
 </resources>

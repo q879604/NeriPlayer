@@ -67,6 +67,7 @@ import moe.ouom.neriplayer.ui.screen.playlist.BiliPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.YouTubeMusicPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.tab.LibraryTab
 import moe.ouom.neriplayer.ui.screen.tab.LibraryScreen
+import moe.ouom.neriplayer.ui.screen.tab.readLibraryDefaultTab
 import moe.ouom.neriplayer.data.model.NeteaseArtistSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
@@ -187,8 +188,11 @@ fun LibraryHostScreen(
     var pendingListRestoreOffset by rememberSaveable { mutableIntStateOf(0) }
     var pendingTopAppBarHeightOffset by rememberSaveable { mutableFloatStateOf(Float.NaN) }
     var pendingTopAppBarContentOffset by rememberSaveable { mutableFloatStateOf(Float.NaN) }
-    // 保存当前选中的标签页类型，避免国际化切换后索引错位
-    var selectedTab by rememberSaveable { mutableStateOf(LibraryTab.LOCAL) }
+    // 保存当前选中的标签页类型，避免国际化切换后索引错位；
+    // 首次创建时优先使用用户在“标签页设置”中配置的默认标签页
+    var selectedTab by rememberSaveable {
+        mutableStateOf(readLibraryDefaultTab(LocalContext.current) ?: LibraryTab.LOCAL)
+    }
     val libraryStateHolder = rememberSaveableStateHolder()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

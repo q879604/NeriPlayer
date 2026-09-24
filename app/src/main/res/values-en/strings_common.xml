@@ -98,4 +98,6 @@
     <string name="cd_close">Close</string>
     <string name="cd_recent">Recent Plays</string>
     <string name="cd_app_background">App background</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
 </resources>

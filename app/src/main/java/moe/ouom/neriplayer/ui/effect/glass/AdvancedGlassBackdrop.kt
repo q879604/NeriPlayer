@@ -31,7 +31,7 @@ internal class AdvancedGlassBackdrop internal constructor() {
     internal val hasActiveBlur: Boolean
         get() = renderEffect != null || localBlurPlan != null
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
     internal fun localBlurRenderer(cacheKey: Int): AdvancedGlassLocalBlurRenderer {
         val existing = localBlurRenderer as? AdvancedGlassLocalBlurRenderer
         if (existing != null && localBlurRendererCacheKey == cacheKey) return existing

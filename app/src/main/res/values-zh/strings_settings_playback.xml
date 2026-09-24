@@ -12,7 +12,7 @@
     <string name="settings_coherent_feedback">连贯反馈</string>
     <string name="settings_coherent_feedback_desc">让详情页与背景页面同步接力移动；关闭后使用背景轻微后退、前景自下而上展开的抽屉式动效</string>
     <string name="settings_advanced_blur">高级模糊效果</string>
-    <string name="settings_advanced_blur_desc">在 Android 13 及以上启用小播放器和底部栏的实时背景模糊</string>
+    <string name="settings_advanced_blur_desc">在 Android 12 及以上启用小播放器和底部栏的实时背景模糊，Android 13 以下使用基础高斯模糊</string>
     <string name="settings_enhanced_advanced_blur">进阶高级模糊</string>
     <string name="settings_enhanced_advanced_blur_desc">为顶部和底部 Tab、设置卡片启用可调节的实时玻璃模糊</string>
     <string name="settings_enhanced_advanced_blur_radius">模糊度</string>

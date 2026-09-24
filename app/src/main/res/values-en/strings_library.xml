@@ -110,4 +110,8 @@
     <string name="favorite_removed">Unfavorited</string>
     <string name="favorite_my_music">My Favorite Music</string>
     <string name="recent_clear_confirm">Are you sure you want to clear all recent play history? This action cannot be undone.</string>
+    <string name="library_tab_order_title">Tab Order</string>
+    <string name="library_tab_order_desc">Drag the handle to reorder tabs; tap a tab to open it by default</string>
+    <string name="library_tab_order_default_badge">Default</string>
+    <string name="library_tab_order_settings">Tab settings</string>
 </resources>

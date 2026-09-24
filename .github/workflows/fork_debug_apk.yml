@@ -1,0 +1,64 @@
+name: NeriPlayer Debug APK (fork)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Branch, tag, or commit SHA to build
+        required: true
+        default: ci/advanced-glass-android12-library-tabs
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  debug-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # 仅构建 arm64-v8a，缩短耗时；debug 变体使用默认调试签名，无需仓库密钥
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --warning-mode all --stacktrace
+
+      - name: Collect APK
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/debug/*.apk)
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "No debug APK produced."
+            exit 1
+          fi
+          mkdir -p out
+          for apk in "${apks[@]}"; do
+            cp "$apk" "out/$(basename "$apk")"
+            echo "Collected $apk -> out/$(basename "$apk")"
+          done
+          ls -la out
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: neriplayer-debug-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 14
